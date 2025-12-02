@@ -7,12 +7,13 @@ const props = defineProps({
   deltaType: { type: String, default: "positive" }, // 'positive' | 'negative'
   iconBgClass: { type: String, required: true },
   deltaBgClass: { type: String, default: "" },
+  progress: { type: Number, default: null }, // 0 → 1 (ex: 0.95)
 });
 </script>
 
 <template>
   <article
-    class="flex min-h-[12rem] flex-col justify-between rounded-2xl border border-[#3d3d3d] bg-[#080808] px-6 py-6 text-xs shadow-[0_0_0_1px_rgba(0,0,0,0.6)]"
+    class="flex min-h-[12rem] flex-col justify-between rounded-2xl border border-[#3d3d3d] bg-[#080808] px-6 py-6 text-xs shadow-[0_0_0_1px_rgba(0,0,0,0.6)] transition-transform transition-shadow duration-150 hover:-translate-y-[2px] hover:border-[#6366f1] hover:shadow-[0_0_0_1px_rgba(99,102,241,0.7)]"
   >
     <header class="mb-5 flex items-center justify-between gap-3">
       <p
@@ -41,6 +42,16 @@ const props = defineProps({
         <span v-if="secondary" class="ml-1 text-[#6A6A6A]">
           {{ secondary }}
         </span>
+      </div>
+
+      <div
+        v-if="title === 'Monthly Budget' && progress !== null"
+        class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#111827]"
+      >
+        <div
+          class="h-full rounded-full bg-gradient-to-r from-[#22c55e] to-[#4ade80]"
+          :style="{ width: Math.min(progress * 100, 100) + '%' }"
+        ></div>
       </div>
 
       <p

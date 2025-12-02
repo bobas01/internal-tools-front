@@ -1,5 +1,6 @@
 <script setup>
 import KpiCard from "../components/KpiCard.vue";
+import RecentToolsTable from "../components/RecentToolsTable.vue";
 import {
   ArrowTrendingUpIcon,
   WrenchIcon,
@@ -30,6 +31,7 @@ import {
         deltaType="positive"
         iconBgClass="bg-gradient-to-br from-[#22c55e] to-[#16a34a]"
         deltaBgClass="bg-gradient-to-r from-[#22c55e] to-[#4ade80] text-white"
+        :progress="28750 / 30000"
       >
         <template #icon>
           <ArrowTrendingUpIcon class="h-4 w-4" />
@@ -75,7 +77,7 @@ import {
         </template>
       </KpiCard>
     </section>
+
+    <RecentToolsTable />
   </main>
 </template>
-
-
