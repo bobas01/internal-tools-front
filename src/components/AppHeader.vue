@@ -14,6 +14,8 @@ import {
 const navItems = ["Dashboard", "Tools", "Analytics", "Settings"];
 const isSearchOpen = ref(false);
 const isNavOpen = ref(false);
+const isUserMenuOpen = ref(false);
+const notificationsCount = ref(3);
 </script>
 
 <template>
@@ -87,20 +89,54 @@ const isNavOpen = ref(false);
           <SunIcon class="h-5 w-5" />
         </button>
 
-        <button class="text-[#9c9c9c]">
+        <button class="relative text-[#9c9c9c]">
           <BellIcon class="h-5 w-5" />
+          <span
+            v-if="notificationsCount > 0"
+            class="absolute -right-1 -top-1 flex h-3.5 min-w-[0.9rem] items-center justify-center rounded-full bg-rose-500 px-[3px] text-[0.6rem] font-semibold text-white"
+          >
+            {{ notificationsCount }}
+          </span>
         </button>
 
         <button class="text-[#9c9c9c]">
           <Cog6ToothIcon class="h-5 w-5" />
         </button>
 
-        <button class="flex items-center gap-2">
-          <span
-            class="flex h-7 w-7 items-center justify-center rounded-full bg-white"
-          />
-          <ChevronDownIcon class="h-4 w-4 text-[#9c9c9c]" />
-        </button>
+        <div class="relative">
+          <button
+            class="flex items-center gap-2"
+            type="button"
+            :aria-expanded="isUserMenuOpen"
+            @click="isUserMenuOpen = !isUserMenuOpen"
+          >
+            <span
+              class="flex h-7 w-7 items-center justify-center rounded-full bg-white"
+            />
+            <ChevronDownIcon class="h-4 w-4 text-[#9c9c9c]" />
+          </button>
+
+          <div
+            v-if="isUserMenuOpen"
+            class="absolute right-0 z-30 mt-2 w-40 rounded-md border border-[#262626] bg-[#050505] py-1 text-xs text-[#e5e5e5] shadow-lg"
+          >
+            <div class="px-3 py-2 text-[0.7rem] text-[#9c9c9c]">
+              Compte utilisateur
+            </div>
+            <button
+              class="flex w-full items-center px-3 py-1.5 text-left hover:bg-[#111111]"
+              type="button"
+            >
+              Informations personnelles
+            </button>
+            <button
+              class="mt-1 flex w-full items-center px-3 py-1.5 text-left text-rose-400 hover:bg-[#111111]"
+              type="button"
+            >
+              Déconnexion
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

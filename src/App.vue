@@ -5,5 +5,6 @@ import AppHeader from "./components/AppHeader.vue";
 <template>
   <div class="min-h-screen bg-[#0a0a0a] text-white">
     <AppHeader />
+    <RouterView />
   </div>
 </template>
