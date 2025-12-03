@@ -11,6 +11,9 @@ const { searchQuery } = useGlobalSearch();
 
 const statusFilter = ref("all");
 const departmentFilter = ref("all");
+const categoryFilter = ref("all");
+const costMin = ref("");
+const costMax = ref("");
 
 const pageSize = 10;
 const currentPage = ref(1);
@@ -22,6 +25,11 @@ const departments = computed(() => {
   const set = new Set(
     tools.value.map((t) => t.owner_department).filter(Boolean)
   );
+  return Array.from(set);
+});
+
+const categories = computed(() => {
+  const set = new Set(tools.value.map((t) => t.category).filter(Boolean));
   return Array.from(set);
 });
 
@@ -41,7 +49,23 @@ const filteredTools = computed(() => {
       departmentFilter.value === "all" ||
       tool.owner_department === departmentFilter.value;
 
-    return matchSearch && matchStatus && matchDepartment;
+    const matchCategory =
+      categoryFilter.value === "all" || tool.category === categoryFilter.value;
+
+    const costNumber = Number(tool.monthly_cost ?? 0);
+    const minOk =
+      costMin.value === "" || costNumber >= Number(costMin.value || 0);
+    const maxOk =
+      costMax.value === "" || costNumber <= Number(costMax.value || 0);
+
+    return (
+      matchSearch &&
+      matchStatus &&
+      matchDepartment &&
+      matchCategory &&
+      minOk &&
+      maxOk
+    );
   });
 });
 
@@ -54,9 +78,12 @@ const pageItems = computed(() => {
   return filteredTools.value.slice(start, start + pageSize);
 });
 
-watch([statusFilter, departmentFilter], () => {
-  currentPage.value = 1;
-});
+watch(
+  [statusFilter, departmentFilter, categoryFilter, costMin, costMax],
+  () => {
+    currentPage.value = 1;
+  }
+);
 
 function nextPage() {
   if (currentPage.value < totalPages.value) currentPage.value += 1;
@@ -125,6 +152,33 @@ function closeDetails() {
               {{ dep }}
             </option>
           </select>
+          <select
+            v-model="categoryFilter"
+            class="h-8 rounded-md border border-[#262626] bg-[#050505] px-2 text-xs text-[#e5e5e5] outline-none focus:border-[#6366f1]"
+          >
+            <option value="all">Category: All</option>
+            <option v-for="cat in categories" :key="cat" :value="cat">
+              {{ cat }}
+            </option>
+          </select>
+          <div class="flex items-center gap-1">
+            <span class="text-[0.7rem] text-[#737373]">Cost:</span>
+            <input
+              v-model="costMin"
+              type="number"
+              min="0"
+              class="w-16 rounded-md border border-[#262626] bg-[#050505] px-1 py-1 text-[0.7rem] text-[#e5e5e5] outline-none focus:border-[#6366f1]"
+              placeholder="Min"
+            />
+            <span class="text-[0.7rem] text-[#737373]">-</span>
+            <input
+              v-model="costMax"
+              type="number"
+              min="0"
+              class="w-16 rounded-md border border-[#262626] bg-[#050505] px-1 py-1 text-[0.7rem] text-[#e5e5e5] outline-none focus:border-[#6366f1]"
+              placeholder="Max"
+            />
+          </div>
         </div>
 
         <div class="flex items-center gap-3">
