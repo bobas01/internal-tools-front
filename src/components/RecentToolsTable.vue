@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { CalendarDaysIcon } from "@heroicons/vue/24/outline";
 
 const tools = [
@@ -86,56 +86,47 @@ const tools = [
 ];
 
 const pageSize = 10;
-const sortKey = ref("name");
-const sortDirection = ref("asc");
 const currentPage = ref(1);
 const openActionIndex = ref(null);
 
-const sortedTools = computed(() => {
-  const key = sortKey.value;
-  const dir = sortDirection.value === "asc" ? 1 : -1;
+const statusFilter = ref("all");
+const departmentFilter = ref("all");
 
-  return [...tools].sort((a, b) => {
-    let av = a[key];
-    let bv = b[key];
+const departments = computed(() => {
+  const set = new Set(tools.map((t) => t.department));
+  return Array.from(set);
+});
 
-    if (key === "users") {
-      av = Number(av);
-      bv = Number(bv);
-    } else if (key === "cost") {
-      const parseCost = (v) =>
-        typeof v === "string" ? Number(v.replace(/[^\d.-]/g, "")) : Number(v);
-      av = parseCost(av);
-      bv = parseCost(bv);
-    } else {
-      av = String(av);
-      bv = String(bv);
-    }
+const filteredTools = computed(() => {
+  return tools.filter((tool) => {
+    const normalizedStatus = tool.status.toLowerCase();
 
-    if (av < bv) return -1 * dir;
-    if (av > bv) return 1 * dir;
-    return 0;
+    const matchStatus =
+      statusFilter.value === "all" ||
+      (statusFilter.value === "active" && normalizedStatus === "active") ||
+      (statusFilter.value === "expiring" && normalizedStatus === "expiring") ||
+      (statusFilter.value === "unused" && normalizedStatus === "unused");
+
+    const matchDepartment =
+      departmentFilter.value === "all" ||
+      tool.department === departmentFilter.value;
+
+    return matchStatus && matchDepartment;
   });
 });
 
 const totalPages = computed(() =>
-  Math.max(1, Math.ceil(sortedTools.value.length / pageSize))
+  Math.max(1, Math.ceil(filteredTools.value.length / pageSize))
 );
 
 const pageItems = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
-  return sortedTools.value.slice(start, start + pageSize);
+  return filteredTools.value.slice(start, start + pageSize);
 });
 
-function setSort(key) {
-  if (sortKey.value === key) {
-    sortDirection.value = sortDirection.value === "asc" ? "desc" : "asc";
-  } else {
-    sortKey.value = key;
-    sortDirection.value = "asc";
-  }
+watch([statusFilter, departmentFilter], () => {
   currentPage.value = 1;
-}
+});
 
 function nextPage() {
   if (currentPage.value < totalPages.value) currentPage.value += 1;
@@ -160,7 +151,37 @@ function prevPage() {
       </div>
     </header>
 
-    <div class="mt-3 overflow-x-auto">
+    <div
+      class="mb-3 flex flex-col gap-3 text-[0.7rem] text-[#d4d4d4] sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="uppercase tracking-wide text-[#737373]">Filters</span>
+        <select
+          v-model="statusFilter"
+          class="h-7 rounded-md border border-[#262626] bg-[#050505] px-2 text-[0.7rem] text-[#e5e5e5] outline-none focus:border-[#6366f1]"
+        >
+          <option value="all">Status: All</option>
+          <option value="active">Status: Active</option>
+          <option value="expiring">Status: Expiring</option>
+          <option value="unused">Status: Unused</option>
+        </select>
+        <select
+          v-model="departmentFilter"
+          class="h-7 rounded-md border border-[#262626] bg-[#050505] px-2 text-[0.7rem] text-[#e5e5e5] outline-none focus:border-[#6366f1]"
+        >
+          <option value="all">Department: All</option>
+          <option v-for="dep in departments" :key="dep" :value="dep">
+            {{ dep }}
+          </option>
+        </select>
+      </div>
+
+      <div class="text-[0.7rem] text-[#a3a3a3]">
+        {{ filteredTools.length }}/{{ tools.length }} tools
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
       <table
         class="w-full min-w-[720px] text-left text-[0.75rem] text-[#d4d4d4]"
       >
@@ -168,146 +189,13 @@ function prevPage() {
           class="border-b border-[#191919] text-[0.7rem] uppercase tracking-wide text-[#737373]"
         >
           <tr>
-            <th
-              class="cursor-pointer py-2 pr-4 font-medium transition-colors"
-              :class="sortKey === 'name' ? 'text-white' : ''"
-              @click="setSort('name')"
-            >
-              <span class="inline-flex items-center gap-1">
-                <span>Tool</span>
-                <span
-                  class="text-[0.6rem]"
-                  :class="
-                    sortKey === 'name'
-                      ? sortDirection === 'asc'
-                        ? 'text-white'
-                        : 'text-white'
-                      : 'text-[#737373]'
-                  "
-                >
-                  {{
-                    sortKey === "name" && sortDirection === "asc"
-                      ? "↑"
-                      : sortKey === "name" && sortDirection === "desc"
-                      ? "↓"
-                      : "↑↓"
-                  }}
-                </span>
-              </span>
-            </th>
-            <th
-              class="cursor-pointer py-2 px-4 font-medium transition-colors"
-              :class="sortKey === 'department' ? 'text-white' : ''"
-              @click="setSort('department')"
-            >
-              <span class="inline-flex items-center gap-1">
-                <span>Department</span>
-                <span
-                  class="text-[0.6rem]"
-                  :class="
-                    sortKey === 'department'
-                      ? sortDirection === 'asc'
-                        ? 'text-white'
-                        : 'text-white'
-                      : 'text-[#737373]'
-                  "
-                >
-                  {{
-                    sortKey === "department" && sortDirection === "asc"
-                      ? "↑"
-                      : sortKey === "department" && sortDirection === "desc"
-                      ? "↓"
-                      : "↑↓"
-                  }}
-                </span>
-              </span>
-            </th>
-            <th
-              class="cursor-pointer py-2 px-4 font-medium transition-colors"
-              :class="sortKey === 'users' ? 'text-white' : ''"
-              @click="setSort('users')"
-            >
-              <span class="inline-flex items-center gap-1">
-                <span>Users</span>
-                <span
-                  class="text-[0.6rem]"
-                  :class="
-                    sortKey === 'users'
-                      ? sortDirection === 'asc'
-                        ? 'text-white'
-                        : 'text-white'
-                      : 'text-[#737373]'
-                  "
-                >
-                  {{
-                    sortKey === "users" && sortDirection === "asc"
-                      ? "↑"
-                      : sortKey === "users" && sortDirection === "desc"
-                      ? "↓"
-                      : "↑↓"
-                  }}
-                </span>
-              </span>
-            </th>
-            <th
-              class="cursor-pointer py-2 px-4 font-medium transition-colors"
-              :class="sortKey === 'cost' ? 'text-white' : ''"
-              @click="setSort('cost')"
-            >
-              <span class="inline-flex items-center gap-1">
-                <span>MonthlyCost</span>
-                <span
-                  class="text-[0.6rem]"
-                  :class="
-                    sortKey === 'cost'
-                      ? sortDirection === 'asc'
-                        ? 'text-white'
-                        : 'text-white'
-                      : 'text-[#737373]'
-                  "
-                >
-                  {{
-                    sortKey === "cost" && sortDirection === "asc"
-                      ? "↑"
-                      : sortKey === "cost" && sortDirection === "desc"
-                      ? "↓"
-                      : "↑↓"
-                  }}
-                </span>
-              </span>
-            </th>
-            <th
-              class="cursor-pointer py-2 px-4 font-medium transition-colors"
-              :class="sortKey === 'status' ? 'text-white' : ''"
-              @click="setSort('status')"
-            >
-              <span class="inline-flex items-center gap-1">
-                <span>Status</span>
-                <span
-                  class="text-[0.6rem]"
-                  :class="
-                    sortKey === 'status'
-                      ? sortDirection === 'asc'
-                        ? 'text-white'
-                        : 'text-white'
-                      : 'text-[#737373]'
-                  "
-                >
-                  {{
-                    sortKey === "status" && sortDirection === "asc"
-                      ? "↑"
-                      : sortKey === "status" && sortDirection === "desc"
-                      ? "↓"
-                      : "↑↓"
-                  }}
-                </span>
-              </span>
-            </th>
+            <th class="py-2 pr-4 font-medium">Tool</th>
+            <th class="py-2 px-4 font-medium">Department</th>
+            <th class="py-2 px-4 font-medium">Users</th>
+            <th class="py-2 px-4 font-medium">MonthlyCost</th>
+            <th class="py-2 px-4 font-medium">Status</th>
             <th class="py-2 px-4 text-right text-[0.65rem] font-medium">
-              <span class="inline-flex items-center gap-1">
-                <span>Actions</span>
-                <span class="text-[0.5rem] text-[#737373]">↑↓</span>
-              </span>
+              Actions
             </th>
           </tr>
         </thead>
