@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import {
   BoltIcon,
@@ -11,8 +11,20 @@ import {
   Bars3Icon,
   XMarkIcon,
 } from "@heroicons/vue/24/outline";
+import { useGlobalSearch } from "../hooks/useGlobalSearch";
 
 const route = useRoute();
+const { searchQuery } = useGlobalSearch();
+
+const searchPlaceholder = computed(() => {
+  if (route.path.startsWith("/tools")) {
+    return "Search in tools catalog...";
+  }
+  if (route.path.startsWith("/analytics")) {
+    return "Search metrics, insights...";
+  }
+  return "Search tools...";
+});
 
 const navItems = [
   { label: "Dashboard", path: "/dashboard" },
@@ -75,7 +87,8 @@ const notificationsCount = ref(3);
         <MagnifyingGlassIcon class="h-4 w-4 text-[#9c9c9c]" />
         <input
           type="text"
-          placeholder="Search tools..."
+          v-model="searchQuery"
+          :placeholder="searchPlaceholder"
           class="w-full bg-transparent text-xs text-[#9c9c9c] placeholder-[#9c9c9c] outline-none"
         />
       </div>
@@ -173,7 +186,8 @@ const notificationsCount = ref(3);
         <MagnifyingGlassIcon class="h-4 w-4 text-[#9c9c9c]" />
         <input
           type="text"
-          placeholder="Search tools..."
+          v-model="searchQuery"
+          :placeholder="searchPlaceholder"
           class="w-full bg-transparent text-xs text-[#9c9c9c] placeholder-[#9c9c9c] outline-none"
         />
         <button

@@ -1,8 +1,10 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { useTools } from "../hooks/useTools";
+import { useGlobalSearch } from "../hooks/useGlobalSearch";
 
 const { tools, isLoading, error } = useTools();
+const { searchQuery } = useGlobalSearch();
 const iconErrorById = ref({});
 
 const statusFilter = ref("all");
@@ -19,7 +21,11 @@ const departments = computed(() => {
 });
 
 const filteredTools = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+
   return tools.value.filter((tool) => {
+    const matchSearch = !q || tool.name.toLowerCase().includes(q);
+
     const matchStatus =
       statusFilter.value === "all" ||
       (statusFilter.value === "active" && tool.status === "active") ||
@@ -30,7 +36,7 @@ const filteredTools = computed(() => {
       departmentFilter.value === "all" ||
       tool.owner_department === departmentFilter.value;
 
-    return matchStatus && matchDepartment;
+    return matchSearch && matchStatus && matchDepartment;
   });
 });
 
