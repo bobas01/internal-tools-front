@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from "vue";
+import { RouterLink, useRoute } from "vue-router";
 import {
   BoltIcon,
   MagnifyingGlassIcon,
@@ -11,7 +12,14 @@ import {
   XMarkIcon,
 } from "@heroicons/vue/24/outline";
 
-const navItems = ["Dashboard", "Tools", "Analytics", "Settings"];
+const route = useRoute();
+
+const navItems = [
+  { label: "Dashboard", path: "/dashboard" },
+  { label: "Tools", path: "/tools" },
+  { label: "Analytics", path: "/analytics" },
+  { label: "Settings", path: "/settings" },
+];
 const isSearchOpen = ref(false);
 const isNavOpen = ref(false);
 const isUserMenuOpen = ref(false);
@@ -35,18 +43,15 @@ const notificationsCount = ref(3);
       </div>
 
       <nav class="hidden items-center gap-6 text-xs text-[#9c9c9c] md:flex">
-        <button
+        <RouterLink
           v-for="item in navItems"
-          :key="item"
-          class="inline-flex items-center text-sm font-medium transition-colors"
+          :key="item.path"
+          :to="item.path"
+          class="inline-flex items-center text-sm font-medium transition-colors hover:text-white"
+          :class="route.path === item.path ? 'text-white' : ''"
         >
-          <span
-            class="hover:text-white"
-            :class="item === 'Dashboard' ? 'text-white' : ''"
-          >
-            {{ item }}
-          </span>
-        </button>
+          <span>{{ item.label }}</span>
+        </RouterLink>
       </nav>
 
       <button
@@ -144,15 +149,18 @@ const notificationsCount = ref(3);
       v-if="isNavOpen"
       class="mt-1 flex flex-col gap-1 text-xs text-[#9c9c9c] md:hidden"
     >
-      <button
+      <RouterLink
         v-for="item in navItems"
-        :key="item"
+        :key="item.path"
+        :to="item.path"
         class="flex items-center rounded-md px-2 py-1.5 text-left hover:bg-[#111111]"
+        :class="route.path === item.path ? 'text-white' : ''"
+        @click="isNavOpen = false"
       >
-        <span :class="item === 'Dashboard' ? 'text-white' : ''">
-          {{ item }}
+        <span>
+          {{ item.label }}
         </span>
-      </button>
+      </RouterLink>
     </nav>
 
     <div
