@@ -8,9 +8,10 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["view"]);
+const emit = defineEmits(["view", "edit", "status-change", "delete"]);
 
 const iconErrorById = ref({});
+const openActionIndex = ref(null);
 
 function getCategoryIcon(category) {
   const normalized = (category || "").toLowerCase();
@@ -107,7 +108,7 @@ function handleIconError(id) {
           €{{ tool.monthly_cost?.toLocaleString("fr-FR") }}
         </td>
         <td class="py-2 px-4">
-          <div class="flex justify-start">
+          <div class="flex items-center gap-2">
             <span
               :class="[
                 'inline-flex min-w-[4.5rem] items-center justify-center rounded-full px-2 py-0.5 text-[0.7rem] font-medium',
@@ -116,16 +117,55 @@ function handleIconError(id) {
             >
               {{ formatStatus(tool.status) }}
             </span>
+            <select
+              :value="tool.status"
+              @change="emit('status-change', tool.id, $event.target.value)"
+              class="h-6 rounded-md border border-[#262626] bg-[#050505] px-1.5 text-[0.65rem] text-[#e5e5e5] outline-none focus:border-[#6366f1]"
+            >
+              <option value="active">Active</option>
+              <option value="expiring">Expiring</option>
+              <option value="unused">Unused</option>
+            </select>
           </div>
         </td>
         <td class="py-2 px-4 text-right">
-          <button
-            type="button"
-            class="rounded-md border border-[#262626] px-2 py-1 text-[0.7rem] text-[#e5e5e5] hover:border-[#404040]"
-            @click="emit('view', tool)"
-          >
-            View
-          </button>
+          <div class="relative inline-block text-left">
+            <button
+              type="button"
+              class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#262626] bg-[#050505] text-[0.7rem] text-[#d4d4d4] hover:border-[#404040]"
+              @click="
+                openActionIndex = openActionIndex === tool.id ? null : tool.id
+              "
+            >
+              ⋮
+            </button>
+            <div
+              v-if="openActionIndex === tool.id"
+              class="absolute right-0 z-20 mt-1 w-28 rounded-md border border-[#262626] bg-[#050505] py-1 text-[0.7rem] text-[#e5e5e5] shadow-lg"
+            >
+              <button
+                class="block w-full px-3 py-1 text-left hover:bg-[#111111]"
+                type="button"
+                @click="emit('view', tool); openActionIndex = null"
+              >
+                View
+              </button>
+              <button
+                class="block w-full px-3 py-1 text-left hover:bg-[#111111]"
+                type="button"
+                @click="emit('edit', tool); openActionIndex = null"
+              >
+                Edit
+              </button>
+              <button
+                class="block w-full px-3 py-1 text-left text-rose-400 hover:bg-[#111111]"
+                type="button"
+                @click="emit('delete', tool.id); openActionIndex = null"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </td>
       </tr>
     </tbody>

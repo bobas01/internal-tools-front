@@ -4,9 +4,17 @@ import { useTools } from "../hooks/useTools";
 import { useGlobalSearch } from "../hooks/useGlobalSearch";
 import ToolsTable from "../components/ToolsTable.vue";
 import ToolCreateModal from "../components/ToolCreateModal.vue";
+import ToolEditModal from "../components/ToolEditModal.vue";
 import ToolDetailsModal from "../components/ToolDetailsModal.vue";
 
-const { tools, isLoading, error, addLocalTool } = useTools();
+const {
+  tools,
+  isLoading,
+  error,
+  addLocalTool,
+  updateLocalTool,
+  updateLocalStatus,
+} = useTools();
 const { searchQuery } = useGlobalSearch();
 
 const statusFilter = ref("all");
@@ -19,7 +27,9 @@ const pageSize = 10;
 const currentPage = ref(1);
 
 const isCreateOpen = ref(false);
+const isEditOpen = ref(false);
 const selectedTool = ref(null);
+const toolToEdit = ref(null);
 
 const departments = computed(() => {
   const set = new Set(
@@ -99,6 +109,28 @@ function onAddToolClick() {
 
 function handleCreateSubmit(payload) {
   addLocalTool(payload);
+}
+
+function handleEdit(tool) {
+  toolToEdit.value = tool;
+  isEditOpen.value = true;
+}
+
+function handleEditSubmit(payload) {
+  if (payload.id) {
+    updateLocalTool(payload.id, payload);
+  }
+}
+
+function handleStatusChange(toolId, newStatus) {
+  updateLocalStatus(toolId, newStatus);
+}
+
+function handleDelete(toolId) {
+  const index = tools.value.findIndex((t) => t.id === toolId);
+  if (index !== -1) {
+    tools.value.splice(index, 1);
+  }
 }
 
 function openDetails(tool) {
@@ -211,7 +243,13 @@ function closeDetails() {
           {{ filteredTools.length }}/{{ tools.length }} tools displayed
         </p>
         <div class="overflow-x-auto">
-          <ToolsTable :items="pageItems" @view="openDetails" />
+          <ToolsTable
+            :items="pageItems"
+            @view="openDetails"
+            @edit="handleEdit"
+            @status-change="handleStatusChange"
+            @delete="handleDelete"
+          />
         </div>
 
         <div
@@ -252,6 +290,13 @@ function closeDetails() {
       :open="isCreateOpen"
       @close="isCreateOpen = false"
       @submit="handleCreateSubmit"
+    />
+
+    <ToolEditModal
+      :open="isEditOpen"
+      :tool="toolToEdit"
+      @close="isEditOpen = false"
+      @submit="handleEditSubmit"
     />
 
     <ToolDetailsModal :tool="selectedTool" @close="closeDetails" />

@@ -58,11 +58,31 @@ export function useTools() {
     ];
   };
 
+  const updateLocalTool = (toolId, updates) => {
+    const index = tools.value.findIndex((t) => t.id === toolId);
+    if (index === -1) return;
+
+    const now = new Date().toISOString();
+    const existing = tools.value[index];
+
+    tools.value[index] = {
+      ...existing,
+      ...updates,
+      updated_at: now,
+    };
+  };
+
+  const updateLocalStatus = (toolId, newStatus) => {
+    updateLocalTool(toolId, { status: newStatus });
+  };
+
   return {
     tools,
     isLoading,
     error,
     refresh: fetchTools,
     addLocalTool,
+    updateLocalTool,
+    updateLocalStatus,
   };
 }
