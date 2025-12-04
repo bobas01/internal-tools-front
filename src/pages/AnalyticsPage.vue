@@ -6,6 +6,8 @@ import { useAnalytics } from "../hooks/useAnalytics";
 import KpiCard from "../components/KpiCard.vue";
 import BaseLineChart from "../components/BaseLineChart.vue";
 import BaseDonutChart from "../components/BaseDonutChart.vue";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   CurrencyEuroIcon,
   ChartBarIcon,
@@ -343,6 +345,282 @@ function exportAnalyticsReport() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// Helper function to format numbers without non-breaking spaces for PDF
+function formatNumberForPDF(num) {
+  return num
+    .toLocaleString("fr-FR")
+    .replace(/\u202F/g, " ")
+    .replace(/\u00A0/g, " ");
+}
+
+function exportAnalyticsReportPDF() {
+  if (!tools.value.length) return;
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let yPos = 20;
+
+  // Header
+  doc.setFontSize(20);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Analytics Report", pageWidth / 2, yPos, { align: "center" });
+  yPos += 10;
+
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  const formattedDate = new Date().toLocaleString("fr-FR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  doc.text(`Generated on ${formattedDate}`, pageWidth / 2, yPos, {
+    align: "center",
+  });
+  yPos += 15;
+
+  // KPIs Section
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Key Performance Indicators", 14, yPos);
+  yPos += 8;
+
+  doc.setFontSize(10);
+  doc.setTextColor(50, 50, 50);
+  const kpiData = [
+    ["Total Monthly Cost", `€${formatNumberForPDF(totalCost.value)}`],
+    ["Average Cost/Tool", `€${formatNumberForPDF(avgCostPerTool.value)}`],
+    ["Active Tools", activeToolsCount.value.toString()],
+    ["Total Users", formatNumberForPDF(totalUsers.value)],
+  ];
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Metric", "Value"]],
+    body: kpiData,
+    theme: "striped",
+    headStyles: { fillColor: [71, 119, 255] },
+    styles: { fontSize: 9 },
+    margin: { left: 14, right: 14 },
+  });
+  yPos = doc.lastAutoTable.finalY + 15;
+
+  // Budget Overview
+  if (budgetOverview.value) {
+    if (yPos > pageHeight - 60) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Budget Overview", 14, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    const budgetData = [
+      ["Monthly Limit", `€${formatNumberForPDF(budgetLimit.value)}`],
+      ["Current Month Total", `€${formatNumberForPDF(budgetCurrent.value)}`],
+      ["Previous Month Total", `€${formatNumberForPDF(budgetPrevious.value)}`],
+      ["Utilization", `${budgetUtilizationValue.value}%`],
+      [
+        "Trend",
+        `${budgetTrendValue.value > 0 ? "+" : ""}${budgetTrendValue.value}%`,
+      ],
+    ];
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Metric", "Value"]],
+      body: budgetData,
+      theme: "striped",
+      headStyles: { fillColor: [34, 197, 94] },
+      styles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+    });
+    yPos = doc.lastAutoTable.finalY + 15;
+  }
+
+  // Cost by Department
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Cost by Department", 14, yPos);
+  yPos += 8;
+
+  const deptData = costByDepartment.value.map((d) => [
+    d.dept,
+    `€${formatNumberForPDF(d.cost)}`,
+  ]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Department", "Monthly Cost"]],
+    body: deptData,
+    theme: "striped",
+    headStyles: { fillColor: [71, 119, 255] },
+    styles: { fontSize: 9 },
+    margin: { left: 14, right: 14 },
+  });
+  yPos = doc.lastAutoTable.finalY + 15;
+
+  // Cost by Category
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Cost by Category", 14, yPos);
+  yPos += 8;
+
+  const catData = costByCategory.value.map((c) => [
+    c.cat,
+    `€${formatNumberForPDF(c.cost)}`,
+  ]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Category", "Monthly Cost"]],
+    body: catData,
+    theme: "striped",
+    headStyles: { fillColor: [249, 115, 22] },
+    styles: { fontSize: 9 },
+    margin: { left: 14, right: 14 },
+  });
+  yPos = doc.lastAutoTable.finalY + 15;
+
+  // Top Tools by Cost
+  if (yPos > pageHeight - 80) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Top Tools by Cost", 14, yPos);
+  yPos += 8;
+
+  const topToolsData = topToolsByCost.value
+    .slice(0, 10)
+    .map((tool) => [
+      tool.name,
+      tool.owner_department || "—",
+      `€${formatNumberForPDF(tool.monthly_cost || 0)}`,
+      (tool.active_users_count || 0).toString(),
+    ]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Tool", "Department", "Monthly Cost", "Users"]],
+    body: topToolsData,
+    theme: "striped",
+    headStyles: { fillColor: [236, 72, 153] },
+    styles: { fontSize: 8 },
+    margin: { left: 14, right: 14 },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 50 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 30 },
+    },
+  });
+  yPos = doc.lastAutoTable.finalY + 15;
+
+  // Unused Tools
+  if (unusedTools.value.length > 0) {
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Unused Tools Warnings", 14, yPos);
+    yPos += 8;
+
+    const unusedData = unusedTools.value
+      .slice(0, 10)
+      .map((tool) => [
+        tool.name,
+        tool.owner_department || "—",
+        `€${formatNumberForPDF(tool.monthly_cost || 0)}`,
+        (tool.active_users_count || 0).toString(),
+      ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Tool", "Department", "Monthly Cost", "Users"]],
+      body: unusedData,
+      theme: "striped",
+      headStyles: { fillColor: [249, 115, 22] },
+      styles: { fontSize: 8 },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 30 },
+      },
+    });
+    yPos = doc.lastAutoTable.finalY + 15;
+  }
+
+  // Expensive Low Usage Tools
+  if (expensiveLowUsageTools.value.length > 0) {
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Cost Optimization Alerts", 14, yPos);
+    yPos += 8;
+
+    const expensiveData = expensiveLowUsageTools.value.map((tool) => {
+      const costPerUser = Math.round(
+        (tool.monthly_cost || 0) / (tool.active_users_count || 1)
+      );
+      return [
+        tool.name,
+        tool.owner_department || "—",
+        `€${formatNumberForPDF(tool.monthly_cost || 0)}`,
+        (tool.active_users_count || 0).toString(),
+        `€${formatNumberForPDF(costPerUser)}/user`,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Tool", "Department", "Monthly Cost", "Users", "Cost/User"]],
+      body: expensiveData,
+      theme: "striped",
+      headStyles: { fillColor: [239, 68, 68] },
+      styles: { fontSize: 8 },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 35 },
+      },
+    });
+  }
+
+  // Save PDF
+  const timestamp = new Date().toISOString().slice(0, 10);
+  doc.save(`analytics-tools-report-${timestamp}.pdf`);
+}
 </script>
 
 <template>
@@ -370,6 +648,13 @@ function exportAnalyticsReport() {
           @click="exportAnalyticsReport"
         >
           Export report (CSV)
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-full border border-[#262626] bg-[#050505] px-3 py-1 text-[0.75rem] font-medium text-[#e5e5e5] hover:bg-[#111111]"
+          @click="exportAnalyticsReportPDF"
+        >
+          Export report (PDF)
         </button>
       </div>
     </section>
