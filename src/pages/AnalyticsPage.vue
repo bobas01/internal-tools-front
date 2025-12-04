@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { useTools } from "../hooks/useTools";
+import { useAnalytics } from "../hooks/useAnalytics";
 import KpiCard from "../components/KpiCard.vue";
 import BaseLineChart from "../components/BaseLineChart.vue";
 import BaseDonutChart from "../components/BaseDonutChart.vue";
@@ -13,6 +14,11 @@ import {
 } from "@heroicons/vue/24/outline";
 
 const { tools, isLoading } = useTools();
+const {
+  analytics,
+  isLoading: isAnalyticsLoading,
+  error: analyticsError,
+} = useAnalytics();
 
 const timeRange = ref("30d");
 const selectedDepartment = ref("all");
@@ -76,6 +82,38 @@ const totalUsers = computed(() => {
     (sum, tool) => sum + (tool.active_users_count || 0),
     0
   );
+});
+
+const budgetOverview = computed(() => analytics.value?.budget_overview || null);
+
+const budgetLimit = computed(() => budgetOverview.value?.monthly_limit ?? 0);
+
+const budgetCurrent = computed(
+  () => budgetOverview.value?.current_month_total ?? 0
+);
+
+const budgetPrevious = computed(
+  () => budgetOverview.value?.previous_month_total ?? 0
+);
+
+const budgetUtilizationValue = computed(() => {
+  if (!budgetOverview.value) return 0;
+  if (budgetOverview.value.budget_utilization) {
+    const parsed = parseFloat(
+      String(budgetOverview.value.budget_utilization).replace("%", "")
+    );
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  if (!budgetLimit.value) return 0;
+  return Math.round((budgetCurrent.value / budgetLimit.value) * 100);
+});
+
+const budgetTrendValue = computed(() => {
+  if (!budgetOverview.value?.trend_percentage) return 0;
+  const parsed = parseFloat(
+    String(budgetOverview.value.trend_percentage).replace("%", "")
+  );
+  return Number.isNaN(parsed) ? 0 : parsed;
 });
 
 const previousMonthTotalCost = computed(() => {
@@ -274,6 +312,82 @@ const averageCostPerActiveUser = computed(() => {
         Visualize costs, usage and performance of your internal tools with
         consistent analytics.
       </p>
+    </section>
+
+    <section
+      class="rounded-xl border border-[#262626] bg-[#060606]/80 px-4 py-6 shadow-sm sm:px-6"
+    >
+      <h2 class="mb-3 text-base font-semibold text-white md:text-lg">
+        Budget Progress
+      </h2>
+      <div
+        v-if="isAnalyticsLoading"
+        class="h-16 w-full animate-pulse rounded-xl bg-[#111111]"
+      />
+      <div v-else-if="analyticsError" class="text-sm text-[#f97316]">
+        Failed to load budget analytics.
+      </div>
+      <div v-else-if="!budgetOverview" class="text-sm text-[#737373]">
+        No budget data available.
+      </div>
+      <div v-else class="space-y-4 text-sm text-[#e5e5e5]">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="text-[0.75rem] uppercase tracking-wide text-[#9ca3af]">
+              Monthly Budget Utilization
+            </p>
+            <p class="mt-1 text-2xl font-semibold text-white">
+              {{ budgetUtilizationValue }}%
+            </p>
+          </div>
+          <div class="text-right text-[0.75rem] text-[#9ca3af]">
+            <p>
+              Current:
+              <span class="font-semibold text-white">
+                €{{ budgetCurrent.toLocaleString("fr-FR") }}
+              </span>
+            </p>
+            <p>
+              Limit:
+              <span class="font-semibold text-white">
+                €{{ budgetLimit.toLocaleString("fr-FR") }}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <div class="h-2 w-full overflow-hidden rounded-full bg-[#1a1a1a]">
+          <div
+            class="h-full rounded-full bg-gradient-to-r from-[#4877FF] via-[#22c55e] to-[#f97316]"
+            :style="{
+              width: `${Math.min(budgetUtilizationValue, 130)}%`,
+            }"
+          />
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-[0.75rem] text-[#9ca3af]">
+            Previous month:
+            <span class="font-medium text-white">
+              €{{ budgetPrevious.toLocaleString("fr-FR") }}
+            </span>
+          </p>
+          <p
+            class="text-[0.75rem] font-medium"
+            :class="
+              budgetTrendValue > 0
+                ? 'text-[#22c55e]'
+                : budgetTrendValue < 0
+                ? 'text-[#f97316]'
+                : 'text-[#9ca3af]'
+            "
+          >
+            Trend:
+            <span v-if="budgetTrendValue > 0">+{{ budgetTrendValue }}%</span>
+            <span v-else>{{ budgetTrendValue }}%</span>
+          </p>
+        </div>
+      </div>
     </section>
 
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
