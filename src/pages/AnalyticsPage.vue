@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useTools } from "../hooks/useTools";
 import KpiCard from "../components/KpiCard.vue";
 import {
@@ -10,6 +10,9 @@ import {
 } from "@heroicons/vue/24/outline";
 
 const { tools, isLoading } = useTools();
+
+const timeRange = ref("30d");
+const selectedDepartment = ref("all");
 
 const totalCost = computed(() => {
   return tools.value.reduce((sum, tool) => sum + (tool.monthly_cost || 0), 0);
@@ -70,6 +73,121 @@ const totalUsers = computed(() => {
     (sum, tool) => sum + (tool.active_users_count || 0),
     0
   );
+});
+
+const departments = computed(() => {
+  const set = new Set();
+  tools.value.forEach((tool) => {
+    if (tool.owner_department) {
+      set.add(tool.owner_department);
+    }
+  });
+  return Array.from(set).sort();
+});
+
+function isInTimeRange(dateString, range) {
+  if (!dateString) return false;
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  const oneDay = 24 * 60 * 60 * 1000;
+
+  if (range === "30d") {
+    return now.getTime() - date.getTime() <= 30 * oneDay;
+  }
+  if (range === "90d") {
+    return now.getTime() - date.getTime() <= 90 * oneDay;
+  }
+  if (range === "1y") {
+    return now.getTime() - date.getTime() <= 365 * oneDay;
+  }
+  return true;
+}
+
+const usageFilteredTools = computed(() => {
+  let result = [...tools.value];
+
+  // Filtre période sur updated_at (fallback sur created_at)
+  result = result.filter((tool) => {
+    const refDate = tool.updated_at || tool.created_at;
+    return isInTimeRange(refDate, timeRange.value);
+  });
+
+  // Drill-down par département
+  if (selectedDepartment.value !== "all") {
+    result = result.filter(
+      (tool) => tool.owner_department === selectedDepartment.value
+    );
+  }
+
+  return result;
+});
+
+const mostUsedTools = computed(() => {
+  return [...usageFilteredTools.value]
+    .filter((t) => (t.active_users_count || 0) > 0)
+    .sort((a, b) => (b.active_users_count || 0) - (a.active_users_count || 0))
+    .slice(0, 5);
+});
+
+const leastUsedTools = computed(() => {
+  return [...usageFilteredTools.value]
+    .sort((a, b) => (a.active_users_count || 0) - (b.active_users_count || 0))
+    .slice(0, 5);
+});
+
+const departmentActivity = computed(() => {
+  const map = new Map();
+  usageFilteredTools.value.forEach((tool) => {
+    const dept = tool.owner_department || "Unknown";
+    const users = tool.active_users_count || 0;
+    map.set(dept, (map.get(dept) || 0) + users);
+  });
+
+  return Array.from(map.entries())
+    .map(([dept, users]) => ({ dept, users }))
+    .sort((a, b) => b.users - a.users);
+});
+
+const maxDepartmentUsers = computed(() => {
+  if (departmentActivity.value.length === 0) return 0;
+  return Math.max(...departmentActivity.value.map((d) => d.users));
+});
+
+const growthTimeline = computed(() => {
+  const counts = new Map();
+  const now = new Date();
+
+  // 6 derniers mois (y compris mois courant)
+  for (let i = 5; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const label = d.toLocaleDateString("en-US", {
+      month: "short",
+    });
+    counts.set(label, 0);
+  }
+
+  usageFilteredTools.value.forEach((tool) => {
+    if (!tool.created_at) return;
+    const created = new Date(tool.created_at);
+    if (Number.isNaN(created.getTime())) return;
+    const label = created.toLocaleDateString("en-US", {
+      month: "short",
+    });
+    if (counts.has(label)) {
+      counts.set(label, (counts.get(label) || 0) + 1);
+    }
+  });
+
+  return Array.from(counts.entries()).map(([label, count]) => ({
+    label,
+    count,
+  }));
+});
+
+const maxGrowthCount = computed(() => {
+  if (growthTimeline.value.length === 0) return 0;
+  return Math.max(...growthTimeline.value.map((m) => m.count));
 });
 </script>
 
@@ -262,6 +380,254 @@ const totalUsers = computed(() => {
             </tr>
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <section
+      class="rounded-xl border border-[#262626] bg-[#060606]/80 px-4 py-6 shadow-sm sm:px-6"
+    >
+      <div
+        class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <h2 class="text-base font-semibold text-white md:text-lg">
+            Usage Analytics
+          </h2>
+          <p class="mt-1 text-[0.7rem] text-[#9ca3af]">
+            Adoption, activity and growth based on usage data.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <div
+            class="inline-flex items-center gap-1 rounded-full border border-[#262626] bg-[#050505] p-1 text-[0.7rem] text-[#a3a3a3]"
+          >
+            <button
+              type="button"
+              class="rounded-full px-2 py-1 transition"
+              :class="
+                timeRange === '30d'
+                  ? 'bg-gradient-to-r from-[#4877FF] to-[#581B94] text-white shadow-sm'
+                  : 'hover:bg-[#111111]'
+              "
+              @click="timeRange = '30d'"
+            >
+              30d
+            </button>
+            <button
+              type="button"
+              class="rounded-full px-2 py-1 transition"
+              :class="
+                timeRange === '90d'
+                  ? 'bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white shadow-sm'
+                  : 'hover:bg-[#111111]'
+              "
+              @click="timeRange = '90d'"
+            >
+              90d
+            </button>
+            <button
+              type="button"
+              class="rounded-full px-2 py-1 transition"
+              :class="
+                timeRange === '1y'
+                  ? 'bg-gradient-to-r from-[#F97316] to-[#FB7185] text-white shadow-sm'
+                  : 'hover:bg-[#111111]'
+              "
+              @click="timeRange = '1y'"
+            >
+              1y
+            </button>
+          </div>
+
+          <div class="text-[0.7rem] text-[#9ca3af]">
+            <label class="mr-1 text-[#737373]">Department</label>
+            <select
+              v-model="selectedDepartment"
+              class="rounded-full border border-[#262626] bg-[#050505] px-2 py-1 text-[0.7rem] text-[#e5e5e5] outline-none"
+            >
+              <option value="all">All</option>
+              <option v-for="dept in departments" :key="dept" :value="dept">
+                {{ dept }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="space-y-4">
+          <div>
+            <h3 class="mb-2 text-s font-semibold text-[#fff ]">
+              Most Used Tools
+            </h3>
+            <div
+              v-if="mostUsedTools.length === 0"
+              class="text-[0.75rem] text-[#737373]"
+            >
+              No usage data in this range.
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="tool in mostUsedTools"
+                :key="tool.id"
+                class="space-y-1"
+              >
+                <div class="flex items-center justify-between text-xs">
+                  <div>
+                    <p class="font-medium text-white">
+                      {{ tool.name }}
+                    </p>
+                    <p class="text-[0.7rem] text-[#9ca3af]">
+                      {{ tool.owner_department || "—" }}
+                    </p>
+                  </div>
+                  <p class="text-xs font-semibold text-white">
+                    {{ tool.active_users_count || 0 }} users
+                  </p>
+                </div>
+                <div class="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r from-[#22c55e] to-[#16a34a]"
+                    :style="{
+                      width: `${
+                        mostUsedTools[0].active_users_count
+                          ? ((tool.active_users_count || 0) /
+                              mostUsedTools[0].active_users_count) *
+                            100
+                          : 0
+                      }%`,
+                    }"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="mb-2 text-s font-semibold text-[#fff ]">
+              Least Used Tools
+            </h3>
+            <div
+              v-if="leastUsedTools.length === 0"
+              class="text-[0.75rem] text-[#737373]"
+            >
+              No usage data in this range.
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="tool in leastUsedTools"
+                :key="tool.id"
+                class="space-y-1"
+              >
+                <div class="flex items-center justify-between text-xs">
+                  <div>
+                    <p class="font-medium text-white">
+                      {{ tool.name }}
+                    </p>
+                    <p class="text-[0.7rem] text-[#9ca3af]">
+                      {{ tool.owner_department || "—" }}
+                    </p>
+                  </div>
+                  <p class="text-xs font-semibold text-white">
+                    {{ tool.active_users_count || 0 }} users
+                  </p>
+                </div>
+                <div class="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r from-[#F97316] to-[#FB7185]"
+                    :style="{
+                      width: `${
+                        leastUsedTools[leastUsedTools.length - 1]
+                          .active_users_count
+                          ? ((tool.active_users_count || 0) /
+                              (leastUsedTools[leastUsedTools.length - 1]
+                                .active_users_count || 1)) *
+                            100
+                          : 0
+                      }%`,
+                    }"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <div>
+            <h3 class="mb-2 text-s font-semibold text-[#fff ]">
+              Department Activity
+            </h3>
+            <div
+              v-if="departmentActivity.length === 0"
+              class="text-[0.75rem] text-[#737373]"
+            >
+              No activity data in this range.
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="item in departmentActivity"
+                :key="item.dept"
+                class="space-y-1"
+              >
+                <div class="flex items-center justify-between text-[0.7rem]">
+                  <span class="text-[#e5e5e5]">{{ item.dept }}</span>
+                  <span class="text-[#9ca3af]"> {{ item.users }} users </span>
+                </div>
+                <div class="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r from-[#3b82f6] to-[#6366f1]"
+                    :style="{
+                      width: `${
+                        maxDepartmentUsers
+                          ? (item.users / maxDepartmentUsers) * 100
+                          : 0
+                      }%`,
+                    }"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="mb-2 text-s font-semibold text-[#fff ]">
+              Growth Trends (New Tools)
+            </h3>
+            <div
+              v-if="growthTimeline.length === 0"
+              class="text-[0.75rem] text-[#737373]"
+            >
+              No new tools in this range.
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="point in growthTimeline"
+                :key="point.label"
+                class="space-y-1"
+              >
+                <div class="flex items-center justify-between text-[0.7rem]">
+                  <span class="text-[#e5e5e5]">{{ point.label }}</span>
+                  <span class="text-[#9ca3af]">
+                    {{ point.count }} new tools
+                  </span>
+                </div>
+                <div class="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r from-[#22c55e] to-[#a3e635]"
+                    :style="{
+                      width: `${
+                        maxGrowthCount
+                          ? (point.count / maxGrowthCount) * 100
+                          : 0
+                      }%`,
+                    }"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
