@@ -1,7 +1,10 @@
 <script setup>
 import { computed, ref } from "vue";
+import { RouterLink } from "vue-router";
 import { useTools } from "../hooks/useTools";
 import KpiCard from "../components/KpiCard.vue";
+import BaseLineChart from "../components/BaseLineChart.vue";
+import BaseDonutChart from "../components/BaseDonutChart.vue";
 import {
   CurrencyEuroIcon,
   ChartBarIcon,
@@ -73,6 +76,21 @@ const totalUsers = computed(() => {
     (sum, tool) => sum + (tool.active_users_count || 0),
     0
   );
+});
+
+const previousMonthTotalCost = computed(() => {
+  return tools.value.reduce(
+    (sum, tool) => sum + (tool.previous_month_cost || 0),
+    0
+  );
+});
+
+const monthlySpendLabels = computed(() => {
+  return ["Previous Month", "Current Month"];
+});
+
+const monthlySpendValues = computed(() => {
+  return [previousMonthTotalCost.value, totalCost.value];
 });
 
 const departments = computed(() => {
@@ -157,32 +175,46 @@ const maxDepartmentUsers = computed(() => {
 const growthTimeline = computed(() => {
   const counts = new Map();
   const now = new Date();
+  const oneDay = 24 * 60 * 60 * 1000;
 
-  // 6 derniers mois (y compris mois courant)
-  for (let i = 5; i >= 0; i -= 1) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const label = d.toLocaleDateString("en-US", {
-      month: "short",
-    });
-    counts.set(label, 0);
+  let daysBack = 180;
+  if (timeRange.value === "30d") {
+    daysBack = 30;
+  } else if (timeRange.value === "90d") {
+    daysBack = 90;
+  } else if (timeRange.value === "1y") {
+    daysBack = 365;
   }
 
-  usageFilteredTools.value.forEach((tool) => {
+  const start = new Date(now.getTime() - daysBack * oneDay);
+
+  tools.value.forEach((tool) => {
     if (!tool.created_at) return;
     const created = new Date(tool.created_at);
     if (Number.isNaN(created.getTime())) return;
+    if (created < start || created > now) return;
+
+    const key = `${created.getFullYear()}-${created.getMonth()}`;
     const label = created.toLocaleDateString("en-US", {
       month: "short",
     });
-    if (counts.has(label)) {
-      counts.set(label, (counts.get(label) || 0) + 1);
+
+    if (!counts.has(key)) {
+      counts.set(key, {
+        label,
+        count: 0,
+        date: new Date(created.getFullYear(), created.getMonth(), 1),
+      });
     }
+    const entry = counts.get(key);
+    entry.count += 1;
   });
 
-  return Array.from(counts.entries()).map(([label, count]) => ({
-    label,
-    count,
-  }));
+  const sorted = Array.from(counts.values()).sort(
+    (a, b) => a.date.getTime() - b.date.getTime()
+  );
+
+  return sorted.map(({ label, count }) => ({ label, count }));
 });
 
 const maxGrowthCount = computed(() => {
@@ -288,6 +320,51 @@ const averageCostPerActiveUser = computed(() => {
           <ArrowTrendingUpIcon class="h-4 w-4" />
         </template>
       </KpiCard>
+    </section>
+
+    <section
+      class="rounded-xl border border-[#262626] bg-[#060606]/80 px-4 py-6 shadow-sm sm:px-6"
+    >
+      <h2 class="mb-4 text-base font-semibold text-white md:text-lg">
+        Cost Analytics
+      </h2>
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div>
+          <h3 class="mb-2 text-sm font-semibold text-white">
+            Monthly Spend Evolution
+          </h3>
+          <p class="mb-3 text-[0.7rem] text-[#9ca3af]">
+            Compare previous and current month total spend across all tools.
+          </p>
+          <div
+            class="rounded-xl border border-[#262626] bg-[#050505] p-3 overflow-visible"
+          >
+            <BaseLineChart
+              :labels="monthlySpendLabels"
+              :values="monthlySpendValues"
+              from-color="#4877FF"
+              to-color="#581B94"
+            />
+          </div>
+        </div>
+
+        <div>
+          <h3 class="mb-2 text-sm font-semibold text-white">
+            Department Cost Breakdown
+          </h3>
+          <p class="mb-3 text-[0.7rem] text-[#9ca3af]">
+            Distribution of current monthly spend by owner department.
+          </p>
+          <div
+            class="rounded-xl border border-[#262626] bg-[#050505] p-3 overflow-visible"
+          >
+            <BaseDonutChart
+              :labels="costByDepartment.map((d) => d.dept)"
+              :values="costByDepartment.map((d) => d.cost)"
+            />
+          </div>
+        </div>
+      </div>
     </section>
 
     <div class="grid gap-6 lg:grid-cols-2">
