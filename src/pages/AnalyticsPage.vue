@@ -189,6 +189,45 @@ const maxGrowthCount = computed(() => {
   if (growthTimeline.value.length === 0) return 0;
   return Math.max(...growthTimeline.value.map((m) => m.count));
 });
+
+const unusedTools = computed(() => {
+  return tools.value.filter(
+    (tool) => tool.status === "unused" || (tool.active_users_count || 0) === 0
+  );
+});
+
+const expensiveLowUsageTools = computed(() => {
+  return tools.value
+    .filter((tool) => {
+      const users = tool.active_users_count || 0;
+      if (!tool.monthly_cost || users === 0) return false;
+      const costPerUser = tool.monthly_cost / users;
+      return costPerUser > 200;
+    })
+    .sort((a, b) => {
+      const aCpu = a.monthly_cost / (a.active_users_count || 1);
+      const bCpu = b.monthly_cost / (b.active_users_count || 1);
+      return bCpu - aCpu;
+    })
+    .slice(0, 3);
+});
+
+const savingsPotential = computed(() => {
+  // Somme des coûts des outils unused
+  return unusedTools.value.reduce(
+    (sum, tool) => sum + (tool.monthly_cost || 0),
+    0
+  );
+});
+
+const averageCostPerActiveUser = computed(() => {
+  const totalActiveUsers = tools.value.reduce(
+    (sum, tool) => sum + (tool.active_users_count || 0),
+    0
+  );
+  if (totalActiveUsers === 0) return 0;
+  return Math.round(totalCost.value / totalActiveUsers);
+});
 </script>
 
 <template>
@@ -625,6 +664,180 @@ const maxGrowthCount = computed(() => {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="rounded-xl border border-[#262626] bg-[#060606]/80 px-4 py-6 shadow-sm sm:px-6"
+    >
+      <div
+        class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <h2 class="text-base font-semibold text-white md:text-lg">
+            Insights & Alerts
+          </h2>
+          <p class="mt-1 text-[0.7rem] text-[#9ca3af]">
+            Cost optimization, unused tools and ROI signals based on your data.
+          </p>
+        </div>
+        <div class="flex gap-2 text-[0.7rem] text-[#a3a3a3]">
+          <RouterLink
+            to="/tools"
+            class="inline-flex items-center gap-1 rounded-full border border-[#262626] bg-[#050505] px-3 py-1 hover:bg-[#111111]"
+          >
+            <span class="text-[#e5e5e5]">Go to Tools</span>
+          </RouterLink>
+          <RouterLink
+            to="/dashboard"
+            class="inline-flex items-center gap-1 rounded-full border border-[#262626] bg-[#050505] px-3 py-1 hover:bg-[#111111]"
+          >
+            <span class="text-[#e5e5e5]">Back to Dashboard</span>
+          </RouterLink>
+        </div>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-3">
+        <div
+          class="space-y-3 rounded-xl border border-[#1f2933] bg-[#020617] px-4 py-3"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-white">
+              Cost Optimization Alerts
+            </h3>
+            <span
+              class="inline-flex items-center rounded-full bg-[#1e293b] px-2 py-0.5 text-[0.65rem] font-medium text-[#e5e5e5]"
+            >
+              {{ expensiveLowUsageTools.length }} tools
+            </span>
+          </div>
+          <p class="text-[0.7rem] text-[#9ca3af]">
+            Tools with a very high cost per active user.
+          </p>
+          <div
+            v-if="expensiveLowUsageTools.length === 0"
+            class="text-[0.75rem] text-[#737373]"
+          >
+            No critical cost issues detected.
+          </div>
+          <ul v-else class="space-y-2 text-[0.75rem]">
+            <li
+              v-for="tool in expensiveLowUsageTools"
+              :key="tool.id"
+              class="flex items-center justify-between"
+            >
+              <div>
+                <p class="font-medium text-white">
+                  {{ tool.name }}
+                </p>
+                <p class="text-[0.7rem] text-[#9ca3af]">
+                  {{ tool.owner_department || "—" }}
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs font-semibold text-[#f97316]">
+                  €{{
+                    Math.round(
+                      (tool.monthly_cost || 0) / (tool.active_users_count || 1)
+                    ).toLocaleString("fr-FR")
+                  }}
+                  / user
+                </p>
+                <p class="text-[0.65rem] text-[#9ca3af]">
+                  {{ tool.active_users_count || 0 }} users
+                </p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div
+          class="space-y-3 rounded-xl border border-[#1f2933] bg-[#020617] px-4 py-3"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-white">
+              Unused Tools Warnings
+            </h3>
+            <span
+              class="inline-flex items-center rounded-full bg-[#1e293b] px-2 py-0.5 text-[0.65rem] font-medium text-[#e5e5e5]"
+            >
+              {{ unusedTools.length }} tools
+            </span>
+          </div>
+          <p class="text-[0.7rem] text-[#9ca3af]">
+            Tools with zero or very low usage that still generate costs.
+          </p>
+          <div
+            v-if="unusedTools.length === 0"
+            class="text-[0.75rem] text-[#737373]"
+          >
+            No unused tools detected.
+          </div>
+          <ul v-else class="space-y-1 text-[0.75rem]">
+            <li
+              v-for="tool in unusedTools.slice(0, 4)"
+              :key="tool.id"
+              class="flex items-center justify-between"
+            >
+              <div>
+                <p class="font-medium text-white">
+                  {{ tool.name }}
+                </p>
+                <p class="text-[0.7rem] text-[#9ca3af]">
+                  Status: {{ tool.status }}
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs font-semibold text-white">
+                  €{{ (tool.monthly_cost || 0).toLocaleString("fr-FR") }}
+                </p>
+                <p class="text-[0.65rem] text-[#9ca3af]">
+                  {{ tool.active_users_count || 0 }} users
+                </p>
+              </div>
+            </li>
+          </ul>
+          <p v-if="unusedTools.length > 4" class="text-[0.7rem] text-[#6b7280]">
+            +{{ unusedTools.length - 4 }} more tools with no usage.
+          </p>
+        </div>
+
+        <div
+          class="space-y-3 rounded-xl border border-[#1f2933] bg-[#020617] px-4 py-3"
+        >
+          <h3 class="text-sm font-semibold text-white">ROI & Usage Snapshot</h3>
+          <p class="text-[0.7rem] text-[#9ca3af]">
+            High-level ROI and adoption metrics for your current portfolio.
+          </p>
+          <div class="grid grid-cols-2 gap-3 text-[0.75rem]">
+            <div>
+              <p class="text-[0.7rem] text-[#9ca3af]">
+                Avg cost per active user
+              </p>
+              <p class="text-base font-semibold text-white">
+                €{{ averageCostPerActiveUser.toLocaleString("fr-FR") }}
+              </p>
+            </div>
+            <div>
+              <p class="text-[0.7rem] text-[#9ca3af]">Unused tools spend</p>
+              <p class="text-base font-semibold text-[#f97316]">
+                €{{ savingsPotential.toLocaleString("fr-FR") }}
+              </p>
+            </div>
+            <div>
+              <p class="text-[0.7rem] text-[#9ca3af]">Active tools</p>
+              <p class="text-base font-semibold text-white">
+                {{ activeToolsCount }}
+              </p>
+            </div>
+            <div>
+              <p class="text-[0.7rem] text-[#9ca3af]">Total tools</p>
+              <p class="text-base font-semibold text-white">
+                {{ tools.length }}
+              </p>
             </div>
           </div>
         </div>
