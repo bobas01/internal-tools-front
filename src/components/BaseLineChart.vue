@@ -44,6 +44,14 @@ const chartData = computed(() => ({
 const options = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  interaction: {
+    mode: "index",
+    intersect: false,
+  },
+  animation: {
+    duration: 1000,
+    easing: "easeInOutQuart",
+  },
   plugins: {
     legend: {
       display: false,
@@ -57,16 +65,31 @@ const options = computed(() => ({
     tooltip: {
       mode: "index",
       intersect: false,
-      backgroundColor: "rgba(15, 23, 42, 0.9)",
+      backgroundColor: "rgba(15, 23, 42, 0.95)",
       borderColor: "#1f2933",
       borderWidth: 1,
       titleColor: "#e5e5e5",
       bodyColor: "#e5e5e5",
-      padding: 8,
+      padding: 12,
+      titleFont: {
+        size: 12,
+        weight: "bold",
+      },
+      bodyFont: {
+        size: 11,
+      },
+      cornerRadius: 8,
+      displayColors: true,
       callbacks: {
+        title(context) {
+          return context[0].label || "";
+        },
         label(context) {
           const value = context.parsed.y || 0;
-          return `€${value.toLocaleString("fr-FR")}`;
+          const percentage = props.values.length > 1
+            ? ((value / props.values.reduce((a, b) => a + b, 0)) * 100).toFixed(1)
+            : 100;
+          return `${context.dataset.label || "Value"}: €${value.toLocaleString("fr-FR")} (${percentage}%)`;
         },
       },
     },
@@ -81,6 +104,7 @@ const options = computed(() => ({
       },
       grid: {
         color: "rgba(55,65,81,0.3)",
+        drawBorder: false,
       },
     },
     y: {
@@ -90,11 +114,12 @@ const options = computed(() => ({
           size: 10,
         },
         callback(value) {
-          return `€${value}`;
+          return `€${value.toLocaleString("fr-FR")}`;
         },
       },
       grid: {
         color: "rgba(31,41,55,0.5)",
+        drawBorder: false,
       },
     },
   },

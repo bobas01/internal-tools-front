@@ -4,10 +4,10 @@ const props = defineProps({
   value: { type: String, required: true },
   secondary: { type: String, default: "" },
   delta: { type: String, default: "" },
-  deltaType: { type: String, default: "positive" }, // 'positive' | 'negative'
+  deltaType: { type: String, default: "positive" }, 
   iconBgClass: { type: String, required: true },
   deltaBgClass: { type: String, default: "" },
-  progress: { type: Number, default: null }, // 0 → 1 (ex: 0.95)
+  progress: { type: Number, default: null }, 
 });
 </script>
 

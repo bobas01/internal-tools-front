@@ -20,7 +20,6 @@ export function useAnalytics() {
       analytics.value = data;
     } catch (err) {
       error.value = err instanceof Error ? err.message : "Unknown error";
-      // eslint-disable-next-line no-console
       console.error("Error fetching analytics", err);
     } finally {
       isLoading.value = false;
@@ -36,5 +35,3 @@ export function useAnalytics() {
     refresh: fetchAnalytics,
   };
 }
-
-

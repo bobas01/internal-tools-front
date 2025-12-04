@@ -298,6 +298,39 @@ const averageCostPerActiveUser = computed(() => {
   return Math.round(totalCost.value / totalActiveUsers);
 });
 
+const userAdoptionRates = computed(() => {
+  const activeTools = tools.value.filter((t) => t.status === "active");
+  const totalUsers = activeTools.reduce(
+    (sum, tool) => sum + (tool.active_users_count || 0),
+    0
+  );
+
+  if (totalUsers === 0) return [];
+
+  return activeTools
+    .map((tool) => {
+      const currentUsers = tool.active_users_count || 0;
+      const adoptionRate =
+        totalUsers > 0 ? Math.round((currentUsers / totalUsers) * 100) : 0;
+
+      return {
+        id: tool.id,
+        name: tool.name,
+        department: tool.owner_department || "—",
+        currentUsers,
+        adoptionRate,
+      };
+    })
+    .filter((item) => item.currentUsers > 0)
+    .sort((a, b) => b.adoptionRate - a.adoptionRate)
+    .slice(0, 10);
+});
+
+const maxAdoptionRate = computed(() => {
+  if (userAdoptionRates.value.length === 0) return 0;
+  return Math.max(...userAdoptionRates.value.map((r) => r.adoptionRate));
+});
+
 function exportAnalyticsReport() {
   if (!tools.value.length) return;
 
@@ -346,7 +379,6 @@ function exportAnalyticsReport() {
   URL.revokeObjectURL(url);
 }
 
-// Helper function to format numbers without non-breaking spaces for PDF
 function formatNumberForPDF(num) {
   return num
     .toLocaleString("fr-FR")
@@ -362,7 +394,6 @@ function exportAnalyticsReportPDF() {
   const pageHeight = doc.internal.pageSize.getHeight();
   let yPos = 20;
 
-  // Header
   doc.setFontSize(20);
   doc.setTextColor(0, 0, 0);
   doc.text("Analytics Report", pageWidth / 2, yPos, { align: "center" });
@@ -382,7 +413,6 @@ function exportAnalyticsReportPDF() {
   });
   yPos += 15;
 
-  // KPIs Section
   doc.setFontSize(14);
   doc.setTextColor(0, 0, 0);
   doc.text("Key Performance Indicators", 14, yPos);
@@ -408,7 +438,6 @@ function exportAnalyticsReportPDF() {
   });
   yPos = doc.lastAutoTable.finalY + 15;
 
-  // Budget Overview
   if (budgetOverview.value) {
     if (yPos > pageHeight - 60) {
       doc.addPage();
@@ -444,7 +473,6 @@ function exportAnalyticsReportPDF() {
     yPos = doc.lastAutoTable.finalY + 15;
   }
 
-  // Cost by Department
   if (yPos > pageHeight - 60) {
     doc.addPage();
     yPos = 20;
@@ -471,7 +499,6 @@ function exportAnalyticsReportPDF() {
   });
   yPos = doc.lastAutoTable.finalY + 15;
 
-  // Cost by Category
   if (yPos > pageHeight - 60) {
     doc.addPage();
     yPos = 20;
@@ -498,7 +525,6 @@ function exportAnalyticsReportPDF() {
   });
   yPos = doc.lastAutoTable.finalY + 15;
 
-  // Top Tools by Cost
   if (yPos > pageHeight - 80) {
     doc.addPage();
     yPos = 20;
@@ -535,7 +561,6 @@ function exportAnalyticsReportPDF() {
   });
   yPos = doc.lastAutoTable.finalY + 15;
 
-  // Unused Tools
   if (unusedTools.value.length > 0) {
     if (yPos > pageHeight - 80) {
       doc.addPage();
@@ -574,7 +599,6 @@ function exportAnalyticsReportPDF() {
     yPos = doc.lastAutoTable.finalY + 15;
   }
 
-  // Expensive Low Usage Tools
   if (expensiveLowUsageTools.value.length > 0) {
     if (yPos > pageHeight - 80) {
       doc.addPage();
@@ -617,7 +641,6 @@ function exportAnalyticsReportPDF() {
     });
   }
 
-  // Save PDF
   const timestamp = new Date().toISOString().slice(0, 10);
   doc.save(`analytics-tools-report-${timestamp}.pdf`);
 }
@@ -959,6 +982,62 @@ function exportAnalyticsReportPDF() {
             </tr>
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <section
+      class="rounded-xl border border-[#262626] bg-[#060606]/80 px-4 py-6 shadow-sm sm:px-6"
+    >
+      <h2 class="mb-4 text-base font-semibold text-white md:text-lg">
+        User Adoption Rates
+      </h2>
+      <p class="mb-4 text-[0.7rem] text-[#9ca3af]">
+        Adoption percentage and growth rate for active tools based on user
+        count.
+      </p>
+      <div v-if="isLoading" class="space-y-3">
+        <div class="h-10 w-full animate-pulse rounded bg-[#1a1a1a]" />
+        <div class="h-10 w-full animate-pulse rounded bg-[#1a1a1a]" />
+      </div>
+      <div
+        v-else-if="userAdoptionRates.length === 0"
+        class="text-sm text-[#737373]"
+      >
+        No adoption data available
+      </div>
+      <div v-else class="space-y-3">
+        <div v-for="item in userAdoptionRates" :key="item.id" class="space-y-1">
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex-1">
+              <p class="font-medium text-white">{{ item.name }}</p>
+              <div
+                class="mt-0.5 flex items-center gap-3 text-[0.7rem] text-[#9ca3af]"
+              >
+                <span>{{ item.department }}</span>
+                <span class="text-[#737373]">•</span>
+                <span>{{ item.currentUsers }} active users</span>
+              </div>
+            </div>
+            <div class="ml-4 text-right">
+              <p class="text-xs font-semibold text-white">
+                {{ item.adoptionRate }}%
+              </p>
+              <p class="text-[0.65rem] text-[#9ca3af]">adoption</p>
+            </div>
+          </div>
+          <div class="h-1.5 w-full rounded-full bg-[#1a1a1a]">
+            <div
+              class="h-full rounded-full bg-gradient-to-r from-[#3b82f6] to-[#6366f1]"
+              :style="{
+                width: `${
+                  maxAdoptionRate
+                    ? (item.adoptionRate / maxAdoptionRate) * 100
+                    : 0
+                }%`,
+              }"
+            />
+          </div>
+        </div>
       </div>
     </section>
 

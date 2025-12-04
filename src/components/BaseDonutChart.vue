@@ -49,38 +49,75 @@ const chartData = computed(() => {
   };
 });
 
-const options = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  cutout: "65%",
-  plugins: {
-    legend: {
-      position: "right",
-      labels: {
-        color: "#e5e5e5",
-        font: {
-          size: 10,
+const options = computed(() => {
+  const total = props.values.reduce((a, b) => a + b, 0);
+  
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: "65%",
+    animation: {
+      animateRotate: true,
+      animateScale: true,
+      duration: 1000,
+      easing: "easeInOutQuart",
+    },
+    plugins: {
+      legend: {
+        position: "right",
+        labels: {
+          color: "#e5e5e5",
+          font: {
+            size: 10,
+          },
+          usePointStyle: true,
+          padding: 12,
+          generateLabels(chart) {
+            const data = chart.data;
+            if (data.labels.length && data.datasets.length) {
+              return data.labels.map((label, i) => {
+                const value = data.datasets[0].data[i] || 0;
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                return {
+                  text: `${label} (${percentage}%)`,
+                  fillStyle: data.datasets[0].backgroundColor[i],
+                  hidden: false,
+                  index: i,
+                };
+              });
+            }
+            return [];
+          },
         },
-        usePointStyle: true,
+      },
+      tooltip: {
+        backgroundColor: "rgba(15, 23, 42, 0.95)",
+        borderColor: "#1f2933",
+        borderWidth: 1,
+        titleColor: "#e5e5e5",
+        bodyColor: "#e5e5e5",
+        padding: 12,
+        titleFont: {
+          size: 12,
+          weight: "bold",
+        },
+        bodyFont: {
+          size: 11,
+        },
+        cornerRadius: 8,
+        displayColors: true,
+        callbacks: {
+          label(context) {
+            const label = context.label || "";
+            const value = context.parsed || 0;
+            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+            return `${label}: €${value.toLocaleString("fr-FR")} (${percentage}%)`;
+          },
+        },
       },
     },
-    tooltip: {
-      backgroundColor: "rgba(15, 23, 42, 0.9)",
-      borderColor: "#1f2933",
-      borderWidth: 1,
-      titleColor: "#e5e5e5",
-      bodyColor: "#e5e5e5",
-      padding: 8,
-      callbacks: {
-        label(context) {
-          const label = context.label || "";
-          const value = context.parsed || 0;
-          return `${label}: €${value.toLocaleString("fr-FR")}`;
-        },
-      },
-    },
-  },
-}));
+  };
+});
 </script>
 
 <template>
