@@ -15,7 +15,23 @@ export function useTools() {
         throw new Error(`Erreur HTTP ${res.status}`);
       }
       const data = await res.json();
-      tools.value = data;
+      tools.value = data.map((tool) => ({
+        ...tool,
+        monthly_cost:
+          tool.monthly_cost !== undefined && tool.monthly_cost !== null
+            ? Number(tool.monthly_cost)
+            : 0,
+        previous_month_cost:
+          tool.previous_month_cost !== undefined &&
+          tool.previous_month_cost !== null
+            ? Number(tool.previous_month_cost)
+            : 0,
+        active_users_count:
+          tool.active_users_count !== undefined &&
+          tool.active_users_count !== null
+            ? Number(tool.active_users_count)
+            : 0,
+      }));
     } catch (err) {
       error.value =
         err instanceof Error

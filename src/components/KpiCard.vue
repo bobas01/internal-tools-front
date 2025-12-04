@@ -3,7 +3,7 @@ const props = defineProps({
   title: { type: String, required: true },
   value: { type: String, required: true },
   secondary: { type: String, default: "" },
-  delta: { type: String, required: true },
+  delta: { type: String, default: "" },
   deltaType: { type: String, default: "positive" }, // 'positive' | 'negative'
   iconBgClass: { type: String, required: true },
   deltaBgClass: { type: String, default: "" },

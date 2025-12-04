@@ -163,13 +163,11 @@ function isInTimeRange(dateString, range) {
 const usageFilteredTools = computed(() => {
   let result = [...tools.value];
 
-  // Filtre période sur updated_at (fallback sur created_at)
   result = result.filter((tool) => {
     const refDate = tool.updated_at || tool.created_at;
     return isInTimeRange(refDate, timeRange.value);
   });
 
-  // Drill-down par département
   if (selectedDepartment.value !== "all") {
     result = result.filter(
       (tool) => tool.owner_department === selectedDepartment.value
@@ -283,7 +281,6 @@ const expensiveLowUsageTools = computed(() => {
 });
 
 const savingsPotential = computed(() => {
-  // Somme des coûts des outils unused
   return unusedTools.value.reduce(
     (sum, tool) => sum + (tool.monthly_cost || 0),
     0
@@ -298,20 +295,83 @@ const averageCostPerActiveUser = computed(() => {
   if (totalActiveUsers === 0) return 0;
   return Math.round(totalCost.value / totalActiveUsers);
 });
+
+function exportAnalyticsReport() {
+  if (!tools.value.length) return;
+
+  const headers = [
+    "id",
+    "name",
+    "owner_department",
+    "category",
+    "status",
+    "monthly_cost",
+    "previous_month_cost",
+    "active_users_count",
+    "created_at",
+    "updated_at",
+  ];
+
+  const lines = [headers.join(",")];
+
+  tools.value.forEach((tool) => {
+    const row = [
+      tool.id,
+      `"${(tool.name || "").replace(/"/g, '""')}"`,
+      `"${(tool.owner_department || "").replace(/"/g, '""')}"`,
+      `"${(tool.category || "").replace(/"/g, '""')}"`,
+      tool.status || "",
+      tool.monthly_cost ?? "",
+      tool.previous_month_cost ?? "",
+      tool.active_users_count ?? "",
+      tool.created_at || "",
+      tool.updated_at || "",
+    ];
+    lines.push(row.join(","));
+  });
+
+  const csvContent = lines.join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  const timestamp = new Date().toISOString().slice(0, 10);
+  a.download = `analytics-tools-report-${timestamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 </script>
 
 <template>
   <main
     class="mx-auto flex w-full flex-col gap-8 px-4 pb-12 pt-8 md:px-10 lg:px-16"
   >
-    <section class="space-y-3">
-      <h1 class="text-2xl font-semibold tracking-tight text-white md:text-3xl">
-        Analytics
-      </h1>
-      <p class="max-w-2xl text-base text-[#a3a3a3] md:text-lg">
-        Visualize costs, usage and performance of your internal tools with
-        consistent analytics.
-      </p>
+    <section
+      class="flex flex-col gap-4 border-b border-[#111111] pb-4 sm:flex-row sm:items-end sm:justify-between"
+    >
+      <div class="space-y-3">
+        <h1
+          class="text-2xl font-semibold tracking-tight text-white md:text-3xl"
+        >
+          Analytics
+        </h1>
+        <p class="max-w-2xl text-base text-[#a3a3a3] md:text-lg">
+          Visualize costs, usage and performance of your internal tools with
+          consistent analytics.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-sm">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-full border border-[#262626] bg-[#050505] px-3 py-1 text-[0.75rem] font-medium text-[#e5e5e5] hover:bg-[#111111]"
+          @click="exportAnalyticsReport"
+        >
+          Export report (CSV)
+        </button>
+      </div>
     </section>
 
     <section
@@ -394,6 +454,7 @@ const averageCostPerActiveUser = computed(() => {
       <KpiCard
         title="Total Monthly Cost"
         :value="`€${totalCost.toLocaleString('fr-FR')}`"
+        delta=""
         deltaType="neutral"
         iconBgClass="bg-gradient-to-br from-[#4877FF] to-[#581B94]"
       >
@@ -405,6 +466,7 @@ const averageCostPerActiveUser = computed(() => {
       <KpiCard
         title="Average Cost/Tool"
         :value="`€${avgCostPerTool.toLocaleString('fr-FR')}`"
+        delta=""
         deltaType="neutral"
         iconBgClass="bg-gradient-to-br from-[#22c55e] to-[#16a34a]"
       >
@@ -416,6 +478,7 @@ const averageCostPerActiveUser = computed(() => {
       <KpiCard
         title="Active Tools"
         :value="activeToolsCount.toString()"
+        delta=""
         deltaType="neutral"
         iconBgClass="bg-gradient-to-br from-[#fb7185] to-[#f97316]"
       >
@@ -427,6 +490,7 @@ const averageCostPerActiveUser = computed(() => {
       <KpiCard
         title="Total Users"
         :value="totalUsers.toLocaleString('fr-FR')"
+        delta=""
         deltaType="neutral"
         iconBgClass="bg-gradient-to-br from-[#F52C8D] to-[#EE004C]"
       >
